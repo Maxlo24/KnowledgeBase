@@ -14,7 +14,7 @@ DOCS_DIR = documents
 CONFIG_DIR = config
 
 # Phony targets are not associated with files.
-.PHONY: setup setup_notebook init sanitize help clean activate test coverage run
+.PHONY: setup setup_notebook create_init init sanitize help clean activate test coverage run
 
 # Default command to run when 'make' is called without arguments.
 help:
@@ -34,24 +34,33 @@ setup:
 	@echo "--- Creating __init__.py in src ---"
 	@touch $(SRC_DIR)/__init__.py  # <--- NEW: Makes 'src' a package
 	@echo "--- Creating main.py in src ---"
-	@echo 'def main():\n    print("Hello from main.py!")\n\n\nif __name__ == "__main__":\n    main()' > $(SRC_DIR)/main.py
+	@echo 'from loguru import logger\n\n' > $(SRC_DIR)/main.py
+	@echo 'def main():\n    logger.debug("Hello from main.py!")\n\n\nif __name__ == "__main__":\n    main()' >> $(SRC_DIR)/main.py
 	@echo "--- Creating placeholder test file ---"
 	@echo 'def test_always_passes():\n    assert True' > $(TESTS_DIR)/test_placeholder.py
 	@echo "--- Creating .gitignore and .env placeholders ---"
 	@echo ".venv/\n__pycache__/\n*.pyc\n.pytest_cache/\nhtmlcov/\n.coverage\n.ruff_cache/\nuv.lock\n.env" > .gitignore
 	@echo "# Local environment variables go here\n" > .env
-	@echo "--- Initializing pyproject.toml with uv in root ---"
+	
+	@echo "--- Initializing root pyproject.toml for tooling ---"
 	@uv python pin $(PYTHON_EXECUTABLE)
 	@uv init --quiet
 	@rm -f main.py
-	@echo "--- Setting project name to: $(PROJECT_NAME) in pyproject.toml ---"
-	@echo "--- Adding default packages (ruff, black, pytest, pytest-cov) ---"
-	@uv add ruff black pytest pytest-cov
-	@echo '\n[tool.ruff]\nline-length = 88\n\n[tool.ruff.lint]\nselect = ["E", "F", "W", "I"]' >> pyproject.toml
-	@uv lock
-# 	@echo "--- Installing project in editable mode ---"
-# 	@uv pip install -e ./$(PYTHON_DIR)
+	@uv add ruff black pytest pytest-cov pydantic loguru
+	@echo '\n[tool.ruff]\nline-length = 88\n\n[tool.ruff.lint]\nselect = ["E", "F", "W", "I"]\nignore = ["E203", "E501"]' >> pyproject.toml
+
+	@echo "--- Initializing python/pyproject.toml for src package ---"
+	@cd $(PYTHON_DIR) && uv init --quiet
+	@cd $(PYTHON_DIR) && rm -f main.py
+
+	@echo "--- Installing src package in editable mode from python/ ---"
+	@uv pip install -e ./$(PYTHON_DIR)
+
 	@echo "--- Setup complete ---"
+
+create_init:
+	@echo "--- Creating __init__.py in src and subfolders ---"
+	@find $(SRC_DIR) -type d -exec touch {}/__init__.py \;
 
 # TARGET: setup add_notebook
 add_notebook:
@@ -62,7 +71,10 @@ add_ml:
 	@uv add torch numpy
 
 add_llm:
-	@uv add langchain
+	@uv add langchain langchain-community
+
+add_graph:
+	@uv add yfiles-jupyter-graphs neomodel
 
 # TARGET: init
 init:
@@ -77,8 +89,8 @@ init:
 # TARGET: sanitize
 sanitize:
 	@echo "--- Running linter (ruff) and formatter (black)... ---"
-	@uv run ruff check $(SRC_DIR) $(TESTS_DIR)
 	@uv run black $(SRC_DIR) $(TESTS_DIR)
+	@uv run ruff check --fix $(SRC_DIR) $(TESTS_DIR)
 
 # TARGET: test
 test:
