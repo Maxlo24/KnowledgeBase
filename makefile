@@ -34,6 +34,7 @@ help:
 	@echo "  make coverage    - Run pytest with coverage report."
 	@echo "  make clean       - Remove virtual environment and cache files."
 	@echo "  make activate    - Print activation command."
+	@echo "  add_default      - Add default libraires"
 	@echo "  make add_notebook- Add Jupyter kernel support."
 	@echo "  make add_ml      - Add machine learning dependencies (torch, numpy)."
 	@echo "  make add_llm     - Add LLM dependencies (langchain, langchain-community)."
@@ -60,7 +61,7 @@ setup:
 	@uv python pin $(PYTHON_EXECUTABLE)
 	@uv init --quiet
 	@rm -f main.py
-	@uv add ruff black pytest pytest-cov pydantic loguru pandas pydantic-settings
+	@make add_default
 	@echo '\n[tool.ruff]\nline-length = 88\n\n[tool.ruff.lint]\nselect = ["E", "F", "W", "I"]\nignore = ["E203", "E501"]' >> pyproject.toml
 
 	@echo "--- Initializing python/pyproject.toml for src package ---"
@@ -85,6 +86,9 @@ setup:
 create_init:
 	@echo "--- Creating __init__.py in src and subfolders ---"
 	@find $(SRC_DIR) -type d -exec touch {}/__init__.py \;
+
+add_default:
+	@uv add ruff black pytest pytest-cov pydantic loguru pandas pydantic-settings click
 
 # TARGET: setup add_notebook
 add_notebook:
